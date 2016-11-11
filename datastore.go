@@ -5,6 +5,7 @@ import (
 	dsq "github.com/ipfs/go-datastore/query"
 	"github.com/jbenet/goprocess"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
@@ -73,78 +74,99 @@ func (d *datastore) Delete(key ds.Key) (err error) {
 
 func (d *datastore) Query(q dsq.Query) (dsq.Results, error) {
 
-	// we can use multiple iterators concurrently. see:
-	// https://godoc.org/github.com/syndtr/goleveldb/leveldb#DB.NewIterator
-	// advance the iterator only if the reader reads
-	//
-	// run query in own sub-process tied to Results.Process(), so that
-	// it waits for us to finish AND so that clients can signal to us
-	// that resources should be reclaimed.
-	qrb := dsq.NewResultBuilder(q)
-	qrb.Process.Go(func(worker goprocess.Process) {
-		d.runQuery(worker, qrb)
-	})
-
-	// go wait on the worker (without signaling close)
-	go qrb.Process.CloseAfterChildren()
-
-	// Now, apply remaining things (filters, order)
-	qr := qrb.Results()
-	for _, f := range q.Filters {
-		qr = dsq.NaiveFilter(qr, f)
-	}
-	for _, o := range q.Orders {
-		qr = dsq.NaiveOrder(qr, o)
-	}
-	return qr, nil
-}
-
-func (d *datastore) runQuery(worker goprocess.Process, qrb *dsq.ResultBuilder) {
-
 	var rnge *util.Range
-	if qrb.Query.Prefix != "" {
-		rnge = util.BytesPrefix([]byte(qrb.Query.Prefix))
+	if q.Prefix != "" {
+		rnge = util.BytesPrefix([]byte(q.Prefix))
 	}
-	i := d.DB.NewIterator(rnge, nil)
-	defer i.Release()
+
+	r := &dsResults{}
+	r.iter = d.DB.NewIterator(rnge, nil)
+	r.q = q
 
 	// advance iterator for offset
-	if qrb.Query.Offset > 0 {
-		for j := 0; j < qrb.Query.Offset; j++ {
-			i.Next()
+	if q.Offset > 0 {
+		for j := 0; j < q.Offset; j++ {
+			r.iter.Next()
 		}
 	}
 
-	// iterate, and handle limit, too
-	for sent := 0; i.Next(); sent++ {
-		// end early if we hit the limit
-		if qrb.Query.Limit > 0 && sent >= qrb.Query.Limit {
+	return r, nil
+}
+
+type dsResults struct {
+	iter iterator.Iterator
+	q    dsq.Query
+	sent int
+	ch   chan dsq.Result
+}
+
+func (r *dsResults) Close() error {
+	r.iter.Release()
+	r.iter = nil
+	return nil
+}
+
+func (r *dsResults) Query() dsq.Query {
+	return r.q
+}
+
+func (r *dsResults) Rest() ([]dsq.Entry, error) {
+	var out []dsq.Entry
+	for {
+		v, ok := r.NextSync()
+		if !ok {
 			break
 		}
+		out = append(out, v.Entry)
+	}
+	return out, nil
+}
 
-		k := ds.NewKey(string(i.Key())).String()
-		e := dsq.Entry{Key: k}
-
-		if !qrb.Query.KeysOnly {
-			buf := make([]byte, len(i.Value()))
-			copy(buf, i.Value())
-			e.Value = buf
-		}
-
-		select {
-		case qrb.Output <- dsq.Result{Entry: e}: // we sent it out
-		case <-worker.Closing(): // client told us to end early.
-			break
-		}
+func (r *dsResults) Next() <-chan dsq.Result {
+	if r.ch != nil {
+		return r.ch
 	}
 
-	if err := i.Error(); err != nil {
-		select {
-		case qrb.Output <- dsq.Result{Error: err}: // client read our error
-		case <-worker.Closing(): // client told us to end.
-			return
+	r.ch = make(chan dsq.Result, 1)
+	go func() {
+		defer close(r.ch)
+		for {
+			v, ok := r.NextSync()
+			if !ok {
+				return
+			}
+
+			r.ch <- v
 		}
+	}()
+	return r.ch
+}
+
+func (r *dsResults) NextSync() (dsq.Result, bool) {
+	if !r.iter.Next() {
+		return dsq.Result{}, false
 	}
+
+	// end early if we hit the limit
+	if r.q.Limit > 0 && r.sent >= r.q.Limit {
+		return dsq.Result{}, false
+	}
+
+	k := ds.NewKey(string(r.iter.Key())).String()
+	e := dsq.Entry{Key: k}
+
+	if !r.q.KeysOnly {
+		buf := make([]byte, len(r.iter.Value()))
+		copy(buf, r.iter.Value())
+		e.Value = buf
+	}
+
+	r.sent++
+	return dsq.Result{Entry: e}, true
+}
+
+func (r *dsResults) Process() goprocess.Process {
+	return nil
 }
 
 // LevelDB needs to be closed.
