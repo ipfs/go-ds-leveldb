@@ -93,7 +93,7 @@ func (d *datastore) QueryNew(q dsq.Query) (dsq.Results, error) {
 			if !ok {
 				return dsq.Result{}, false
 			}
-			k := ds.NewKey(string(i.Key())).String()
+			k := string(i.Key())
 			e := dsq.Entry{Key: k}
 
 			if !q.KeysOnly {
@@ -160,7 +160,7 @@ func (d *datastore) runQuery(worker goprocess.Process, qrb *dsq.ResultBuilder) {
 			break
 		}
 
-		k := ds.NewKey(string(i.Key())).String()
+		k := string(i.Key())
 		e := dsq.Entry{Key: k}
 
 		if !qrb.Query.KeysOnly {
