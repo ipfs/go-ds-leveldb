@@ -72,7 +72,45 @@ func (d *datastore) Delete(key ds.Key) (err error) {
 }
 
 func (d *datastore) Query(q dsq.Query) (dsq.Results, error) {
+	return d.QueryNew(q)
+}
 
+func (d *datastore) QueryNew(q dsq.Query) (dsq.Results, error) {
+	if len(q.Filters) > 0 ||
+		len(q.Orders) > 0 ||
+		q.Limit > 0 ||
+		q.Offset > 0 {
+		return d.QueryOrig(q)
+	}
+	var rnge *util.Range
+	if q.Prefix != "" {
+		rnge = util.BytesPrefix([]byte(q.Prefix))
+	}
+	i := d.DB.NewIterator(rnge, nil)
+	return dsq.ResultsFromIterator(q, dsq.Iterator{
+		Next: func() (dsq.Result, bool) {
+			ok := i.Next()
+			if !ok {
+				return dsq.Result{}, false
+			}
+			k := string(i.Key())
+			e := dsq.Entry{Key: k}
+
+			if !q.KeysOnly {
+				buf := make([]byte, len(i.Value()))
+				copy(buf, i.Value())
+				e.Value = buf
+			}
+			return dsq.Result{Entry: e}, true
+		},
+		Close: func() error {
+			i.Release()
+			return nil
+		},
+	}), nil
+}
+
+func (d *datastore) QueryOrig(q dsq.Query) (dsq.Results, error) {
 	// we can use multiple iterators concurrently. see:
 	// https://godoc.org/github.com/syndtr/goleveldb/leveldb#DB.NewIterator
 	// advance the iterator only if the reader reads
@@ -122,7 +160,7 @@ func (d *datastore) runQuery(worker goprocess.Process, qrb *dsq.ResultBuilder) {
 			break
 		}
 
-		k := ds.NewKey(string(i.Key())).String()
+		k := string(i.Key())
 		e := dsq.Entry{Key: k}
 
 		if !qrb.Query.KeysOnly {
