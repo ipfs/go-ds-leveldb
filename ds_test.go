@@ -41,6 +41,15 @@ func newDS(t *testing.T) (*datastore, func()) {
 	}
 }
 
+// newDSMem returns an in-memory datastore.
+func newDSMem(t *testing.T) *datastore {
+	d, err := NewDatastore("", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
 func addTestCases(t *testing.T, d *datastore, testcases map[string]string) {
 	for k, v := range testcases {
 		dsk := ds.NewKey(k)
@@ -63,9 +72,7 @@ func addTestCases(t *testing.T, d *datastore, testcases map[string]string) {
 
 }
 
-func TestQuery(t *testing.T) {
-	d, close := newDS(t)
-	defer close()
+func testQuery(t *testing.T, d *datastore) {
 	addTestCases(t, d, testcases)
 
 	rs, err := d.Query(dsq.Query{Prefix: "/a/"})
@@ -92,12 +99,26 @@ func TestQuery(t *testing.T) {
 		"/a/b/d",
 		"/a/c",
 	}, rs)
+}
 
+func TestQuery(t *testing.T) {
+	d, close := newDS(t)
+	defer close()
+	testQuery(t, d)
+}
+func TestQueryMem(t *testing.T) {
+	d := newDSMem(t)
+	testQuery(t, d)
 }
 
 func TestQueryRespectsProcess(t *testing.T) {
 	d, close := newDS(t)
 	defer close()
+	addTestCases(t, d, testcases)
+}
+
+func TestQueryRespectsProcessMem(t *testing.T) {
+	d := newDSMem(t)
 	addTestCases(t, d, testcases)
 }
 
@@ -123,10 +144,7 @@ func expectMatches(t *testing.T, expect []string, actualR dsq.Results) {
 	}
 }
 
-func TestBatching(t *testing.T) {
-	d, done := newDS(t)
-	defer done()
-
+func testBatching(t *testing.T, d *datastore) {
 	b, err := d.Batch()
 	if err != nil {
 		t.Fatal(err)
@@ -154,4 +172,15 @@ func TestBatching(t *testing.T) {
 			t.Fatal("got wrong data!")
 		}
 	}
+}
+
+func TestBatching(t *testing.T) {
+	d, done := newDS(t)
+	defer done()
+	testBatching(t, d)
+}
+
+func TestBatchingMem(t *testing.T) {
+	d := newDSMem(t)
+	testBatching(t, d)
 }

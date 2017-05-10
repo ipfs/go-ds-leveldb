@@ -6,6 +6,7 @@ import (
 	"github.com/jbenet/goprocess"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
@@ -15,12 +16,24 @@ type datastore struct {
 
 type Options opt.Options
 
+// NewDatastore returns a new datastore backed by leveldb
+//
+// for path == "", an in memory bachend will be chosen
 func NewDatastore(path string, opts *Options) (*datastore, error) {
 	var nopts opt.Options
 	if opts != nil {
 		nopts = opt.Options(*opts)
 	}
-	db, err := leveldb.OpenFile(path, &nopts)
+
+	var err error
+	var db *leveldb.DB
+
+	if path == "" {
+		db, err = leveldb.Open(storage.NewMemStorage(), &nopts)
+	} else {
+		db, err = leveldb.OpenFile(path, &nopts)
+	}
+
 	if err != nil {
 		return nil, err
 	}
