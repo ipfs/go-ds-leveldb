@@ -14,6 +14,8 @@ type datastore struct {
 	DB *leveldb.DB
 }
 
+// Options is an alias of syndtr/goleveldb/opt.Options which might be extended
+// in the future.
 type Options opt.Options
 
 // NewDatastore returns a new datastore backed by leveldb
