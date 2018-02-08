@@ -184,3 +184,47 @@ func TestBatchingMem(t *testing.T) {
 	d := newDSMem(t)
 	testBatching(t, d)
 }
+
+func TestDiskUsage(t *testing.T) {
+	d, done := newDS(t)
+	addTestCases(t, d, testcases)
+	du, err := d.DiskUsage()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if du == 0 {
+		t.Fatal("expected some disk usage")
+	}
+
+	k := ds.NewKey("more")
+	err = d.Put(k, []byte("value"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	du2, err := d.DiskUsage()
+	if du2 <= du {
+		t.Fatal("size should have increased")
+	}
+
+	done()
+
+	// This works because it's using the cached value
+	du3, err := d.DiskUsage()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if du3 != du2 {
+		t.Fatal("expected to return the cached disk usage value")
+	}
+}
+
+func TestDiskUsageInMem(t *testing.T) {
+	d := newDSMem(t)
+	du, _ := d.DiskUsage()
+	if du != 0 {
+		t.Fatal("inmem dbs have 0 disk usage")
+	}
+}
