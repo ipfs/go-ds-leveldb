@@ -1,6 +1,9 @@
 package leveldb
 
 import (
+	"os"
+	"path/filepath"
+
 	ds "github.com/ipfs/go-datastore"
 	dsq "github.com/ipfs/go-datastore/query"
 	"github.com/jbenet/goprocess"
@@ -11,7 +14,8 @@ import (
 )
 
 type datastore struct {
-	DB *leveldb.DB
+	DB   *leveldb.DB
+	path string
 }
 
 // Options is an alias of syndtr/goleveldb/opt.Options which might be extended
@@ -41,7 +45,8 @@ func NewDatastore(path string, opts *Options) (*datastore, error) {
 	}
 
 	return &datastore{
-		DB: db,
+		DB:   db,
+		path: path,
 	}, nil
 }
 
@@ -198,6 +203,30 @@ func (d *datastore) runQuery(worker goprocess.Process, qrb *dsq.ResultBuilder) {
 			return
 		}
 	}
+}
+
+// DiskUsage returns the current disk size used by this levelDB.
+// For in-mem datastores, it will return 0.
+func (d *datastore) DiskUsage() (uint64, error) {
+	if d.path == "" { // in-mem
+		return 0, nil
+	}
+
+	var du uint64
+
+	err := filepath.Walk(d.path, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		du += uint64(info.Size())
+		return nil
+	})
+
+	if err != nil {
+		return 0, err
+	}
+
+	return du, nil
 }
 
 // LevelDB needs to be closed.
