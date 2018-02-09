@@ -210,14 +210,10 @@ func TestDiskUsage(t *testing.T) {
 
 	done()
 
-	// This works because it's using the cached value
-	du3, err := d.DiskUsage()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if du3 != du2 {
-		t.Fatal("expected to return the cached disk usage value")
+	// This should fail
+	_, err = d.DiskUsage()
+	if err == nil {
+		t.Fatal("DiskUsage should fail when we cannot walk path")
 	}
 }
 

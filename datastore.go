@@ -3,7 +3,6 @@ package leveldb
 import (
 	"os"
 	"path/filepath"
-	"sync/atomic"
 
 	ds "github.com/ipfs/go-datastore"
 	dsq "github.com/ipfs/go-datastore/query"
@@ -17,8 +16,6 @@ import (
 type datastore struct {
 	DB   *leveldb.DB
 	path string
-
-	diskUsage uint64
 }
 
 // Options is an alias of syndtr/goleveldb/opt.Options which might be extended
@@ -48,9 +45,8 @@ func NewDatastore(path string, opts *Options) (*datastore, error) {
 	}
 
 	return &datastore{
-		DB:        db,
-		path:      path,
-		diskUsage: 0,
+		DB:   db,
+		path: path,
 	}, nil
 }
 
@@ -63,7 +59,6 @@ func (d *datastore) Put(key ds.Key, value interface{}) (err error) {
 	if !ok {
 		return ds.ErrInvalidType
 	}
-	d.invalidateDiskUsage()
 	return d.DB.Put(key.Bytes(), val, nil)
 }
 
@@ -93,7 +88,6 @@ func (d *datastore) Delete(key ds.Key) (err error) {
 	} else if err != nil {
 		return err
 	}
-	d.invalidateDiskUsage()
 	return d.DB.Delete(key.Bytes(), nil)
 }
 
@@ -211,10 +205,6 @@ func (d *datastore) runQuery(worker goprocess.Process, qrb *dsq.ResultBuilder) {
 	}
 }
 
-func (d *datastore) invalidateDiskUsage() {
-	atomic.StoreUint64(&d.diskUsage, 0)
-}
-
 // DiskUsage returns the current disk size used by this levelDB.
 // For in-mem datastores, it will return 0.
 func (d *datastore) DiskUsage() (uint64, error) {
@@ -222,28 +212,21 @@ func (d *datastore) DiskUsage() (uint64, error) {
 		return 0, nil
 	}
 
-	cachedDu := atomic.LoadUint64(&d.diskUsage)
+	var du uint64
 
-	if cachedDu == 0 { // no-cached value
-		var du uint64
-
-		err := filepath.Walk(d.path, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			du += uint64(info.Size())
-			return nil
-		})
-
+	err := filepath.Walk(d.path, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return 0, err
+			return err
 		}
+		du += uint64(info.Size())
+		return nil
+	})
 
-		atomic.StoreUint64(&d.diskUsage, du)
-		return du, nil
+	if err != nil {
+		return 0, err
 	}
 
-	return cachedDu, nil
+	return du, nil
 }
 
 // LevelDB needs to be closed.
@@ -254,16 +237,14 @@ func (d *datastore) Close() (err error) {
 func (d *datastore) IsThreadSafe() {}
 
 type leveldbBatch struct {
-	b     *leveldb.Batch
-	db    *leveldb.DB
-	invDu func()
+	b  *leveldb.Batch
+	db *leveldb.DB
 }
 
 func (d *datastore) Batch() (ds.Batch, error) {
 	return &leveldbBatch{
-		b:     new(leveldb.Batch),
-		db:    d.DB,
-		invDu: d.invalidateDiskUsage,
+		b:  new(leveldb.Batch),
+		db: d.DB,
 	}, nil
 }
 
@@ -278,7 +259,6 @@ func (b *leveldbBatch) Put(key ds.Key, value interface{}) error {
 }
 
 func (b *leveldbBatch) Commit() error {
-	b.invDu()
 	return b.db.Write(b.b, nil)
 }
 
