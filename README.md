@@ -33,7 +33,7 @@ It uses [Gx](https://github.com/whyrusleeping/gx) to manage dependencies. You ca
 import "github.com/ipfs/go-ds-leveldb"
 ```
 
-Check the [GoDoc documentation](https://godoc.org/github.com/ipfs/go-ds-lebeldb)
+Check the [GoDoc documentation](https://godoc.org/github.com/ipfs/go-ds-leveldb)
 
 
 ## Contribute
