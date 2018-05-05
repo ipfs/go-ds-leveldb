@@ -8,6 +8,7 @@ import (
 	dsq "github.com/ipfs/go-datastore/query"
 	"github.com/jbenet/goprocess"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -38,6 +39,9 @@ func NewDatastore(path string, opts *Options) (*datastore, error) {
 		db, err = leveldb.Open(storage.NewMemStorage(), &nopts)
 	} else {
 		db, err = leveldb.OpenFile(path, &nopts)
+		if errors.IsCorrupted(err) && !nopts.GetReadOnly() {
+			db, err = leveldb.RecoverFile(path, &nopts)
+		}
 	}
 
 	if err != nil {
