@@ -64,8 +64,7 @@ func addTestCases(t *testing.T, d *datastore, testcases map[string]string) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		v2b := v2.([]byte)
-		if string(v2b) != v {
+		if string(v2) != v {
 			t.Errorf("%s values differ: %s != %s", k, v, v2)
 		}
 	}
@@ -168,7 +167,7 @@ func testBatching(t *testing.T, d *datastore) {
 			t.Fatal(err)
 		}
 
-		if v != string(val.([]byte)) {
+		if v != string(val) {
 			t.Fatal("got wrong data!")
 		}
 	}
