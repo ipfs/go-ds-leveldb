@@ -1,6 +1,8 @@
 package leveldb
 
 import (
+	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -222,4 +224,99 @@ func TestDiskUsageInMem(t *testing.T) {
 	if du != 0 {
 		t.Fatal("inmem dbs have 0 disk usage")
 	}
+}
+
+func TestTransactionCommit(t *testing.T) {
+	key := ds.NewKey("/test/key1")
+
+	d, done := newDS(t)
+	defer done()
+
+	txn, err := d.NewTransaction(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer txn.Discard()
+
+	if err := txn.Put(key, []byte("hello")); err != nil {
+		t.Fatal(err)
+	}
+	if val, err := d.Get(key); err != ds.ErrNotFound {
+		t.Fatalf("expected ErrNotFound, got err: %v, value: %v", err, val)
+	}
+	if err := txn.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if val, err := d.Get(key); err != nil || !bytes.Equal(val, []byte("hello")) {
+		t.Fatalf("expected entry present after commit, got err: %v, value: %v", err, val)
+	}
+}
+
+func TestTransactionDiscard(t *testing.T) {
+	key := ds.NewKey("/test/key1")
+
+	d, done := newDS(t)
+	defer done()
+
+	txn, err := d.NewTransaction(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer txn.Discard()
+
+	if err := txn.Put(key, []byte("hello")); err != nil {
+		t.Fatal(err)
+	}
+	if val, err := d.Get(key); err != ds.ErrNotFound {
+		t.Fatalf("expected ErrNotFound, got err: %v, value: %v", err, val)
+	}
+	if txn.Discard(); err != nil {
+		t.Fatal(err)
+	}
+	if val, err := d.Get(key); err != ds.ErrNotFound {
+		t.Fatalf("expected ErrNotFound, got err: %v, value: %v", err, val)
+	}
+}
+
+func TestTransactionManyOperations(t *testing.T) {
+	keys := []ds.Key{ds.NewKey("/test/key1"), ds.NewKey("/test/key2"), ds.NewKey("/test/key3"), ds.NewKey("/test/key4"), ds.NewKey("/test/key5")}
+
+	d, done := newDS(t)
+	defer done()
+
+	txn, err := d.NewTransaction(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer txn.Discard()
+
+	// Insert all entries.
+	for i := 0; i < 5; i++ {
+		if err := txn.Put(keys[i], []byte(fmt.Sprintf("hello%d", i))); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Remove the third entry.
+	if err := txn.Delete(keys[2]); err != nil {
+		t.Fatal(err)
+	}
+
+	// Check existences.
+	if has, err := txn.Has(keys[1]); err != nil || !has {
+		t.Fatalf("expected key[1] to be present, err: %v, has: %v", err, has)
+	}
+	if has, err := txn.Has(keys[2]); err != nil || has {
+		t.Fatalf("expected key[2] to be absent, err: %v, has: %v", err, has)
+	}
+
+	var res dsq.Results
+	if res, err = txn.Query(dsq.Query{Prefix: "/test"}); err != nil {
+		t.Fatalf("query failed, err: %v", err)
+	}
+	if entries, err := res.Rest(); err != nil || len(entries) != 4 {
+		t.Fatalf("query failed or contained unexpected number of entries, err: %v, results: %v", err, entries)
+	}
+
+	txn.Discard()
 }
