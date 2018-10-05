@@ -9,6 +9,7 @@ import (
 
 	ds "github.com/ipfs/go-datastore"
 	dsq "github.com/ipfs/go-datastore/query"
+	dstest "github.com/ipfs/go-datastore/test"
 )
 
 var testcases = map[string]string{
@@ -319,4 +320,10 @@ func TestTransactionManyOperations(t *testing.T) {
 	}
 
 	txn.Discard()
+}
+
+func TestSuite(t *testing.T) {
+	d := newDSMem(t)
+	defer d.Close()
+	dstest.SubtestAll(t, d)
 }
