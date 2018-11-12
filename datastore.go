@@ -15,14 +15,14 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-type datastore struct {
+type Datastore struct {
 	*accessor
 	DB   *leveldb.DB
 	path string
 }
 
-var _ ds.Datastore = (*datastore)(nil)
-var _ ds.TxnDatastore = (*datastore)(nil)
+var _ ds.Datastore = (*Datastore)(nil)
+var _ ds.TxnDatastore = (*Datastore)(nil)
 
 // Options is an alias of syndtr/goleveldb/opt.Options which might be extended
 // in the future.
@@ -31,7 +31,7 @@ type Options opt.Options
 // NewDatastore returns a new datastore backed by leveldb
 //
 // for path == "", an in memory bachend will be chosen
-func NewDatastore(path string, opts *Options) (*datastore, error) {
+func NewDatastore(path string, opts *Options) (*Datastore, error) {
 	var nopts opt.Options
 	if opts != nil {
 		nopts = opt.Options(*opts)
@@ -53,7 +53,7 @@ func NewDatastore(path string, opts *Options) (*datastore, error) {
 		return nil, err
 	}
 
-	return &datastore{
+	return &Datastore{
 		accessor: &accessor{ldb: db},
 		DB:       db,
 		path:     path,
@@ -233,7 +233,7 @@ func (a *accessor) runQuery(worker goprocess.Process, qrb *dsq.ResultBuilder) {
 
 // DiskUsage returns the current disk size used by this levelDB.
 // For in-mem datastores, it will return 0.
-func (d *datastore) DiskUsage() (uint64, error) {
+func (d *Datastore) DiskUsage() (uint64, error) {
 	if d.path == "" { // in-mem
 		return 0, nil
 	}
@@ -256,18 +256,18 @@ func (d *datastore) DiskUsage() (uint64, error) {
 }
 
 // LevelDB needs to be closed.
-func (d *datastore) Close() (err error) {
+func (d *Datastore) Close() (err error) {
 	return d.DB.Close()
 }
 
-func (d *datastore) IsThreadSafe() {}
+func (d *Datastore) IsThreadSafe() {}
 
 type leveldbBatch struct {
 	b  *leveldb.Batch
 	db *leveldb.DB
 }
 
-func (d *datastore) Batch() (ds.Batch, error) {
+func (d *Datastore) Batch() (ds.Batch, error) {
 	return &leveldbBatch{
 		b:  new(leveldb.Batch),
 		db: d.DB,
@@ -302,7 +302,7 @@ func (t *transaction) Discard() {
 	t.tx.Discard()
 }
 
-func (d *datastore) NewTransaction(readOnly bool) (ds.Txn, error) {
+func (d *Datastore) NewTransaction(readOnly bool) (ds.Txn, error) {
 	tx, err := d.DB.OpenTransaction()
 	if err != nil {
 		return nil, err
