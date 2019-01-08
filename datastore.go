@@ -177,9 +177,8 @@ func (a *accessor) queryOrig(q dsq.Query) (dsq.Results, error) {
 		// leveldb iterators return entries sorted lexicographically by key, so we can bypass the naive ordering
 		// for OrderByKey. Since OrderByKey.Sort() has as struct receiver, the value stored in q.Orders can be a
 		// pointer or a struct, so we need to check for both for correctness.
-		if _, ok := o.(dsq.OrderByKey); ok {
-			continue
-		} else if _, ok = o.(*dsq.OrderByKey); ok {
+		switch o.(type) {
+		case dsq.OrderByKey, *dsq.OrderByKey:
 			continue
 		}
 		qr = dsq.NaiveOrder(qr, o)
