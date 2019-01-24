@@ -28,7 +28,7 @@ var testcases = map[string]string{
 //
 //  d, close := newDS(t)
 //  defer close()
-func newDS(t *testing.T) (*datastore, func()) {
+func newDS(t *testing.T) (*Datastore, func()) {
 	path, err := ioutil.TempDir("/tmp", "testing_leveldb_")
 	if err != nil {
 		t.Fatal(err)
@@ -45,7 +45,7 @@ func newDS(t *testing.T) (*datastore, func()) {
 }
 
 // newDSMem returns an in-memory datastore.
-func newDSMem(t *testing.T) *datastore {
+func newDSMem(t *testing.T) *Datastore {
 	d, err := NewDatastore("", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +53,7 @@ func newDSMem(t *testing.T) *datastore {
 	return d
 }
 
-func addTestCases(t *testing.T, d *datastore, testcases map[string]string) {
+func addTestCases(t *testing.T, d *Datastore, testcases map[string]string) {
 	for k, v := range testcases {
 		dsk := ds.NewKey(k)
 		if err := d.Put(dsk, []byte(v)); err != nil {
@@ -74,7 +74,7 @@ func addTestCases(t *testing.T, d *datastore, testcases map[string]string) {
 
 }
 
-func testQuery(t *testing.T, d *datastore) {
+func testQuery(t *testing.T, d *Datastore) {
 	addTestCases(t, d, testcases)
 
 	rs, err := d.Query(dsq.Query{Prefix: "/a/"})
@@ -146,7 +146,7 @@ func expectMatches(t *testing.T, expect []string, actualR dsq.Results) {
 	}
 }
 
-func testBatching(t *testing.T, d *datastore) {
+func testBatching(t *testing.T, d *Datastore) {
 	b, err := d.Batch()
 	if err != nil {
 		t.Fatal(err)
