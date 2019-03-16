@@ -260,8 +260,6 @@ func (d *Datastore) Close() (err error) {
 	return d.DB.Close()
 }
 
-func (d *Datastore) IsThreadSafe() {}
-
 type leveldbBatch struct {
 	b  *leveldb.Batch
 	db *leveldb.DB
