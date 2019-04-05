@@ -114,22 +114,26 @@ func (a *accessor) Delete(key ds.Key) (err error) {
 
 func (a *accessor) Query(q dsq.Query) (dsq.Results, error) {
 	var rnge *util.Range
+
+	// make a copy of the query for the fallback naive query implementation.
+	// don't modify the original so res.Query() returns the correct results.
+	qNaive := q
 	if q.Prefix != "" {
 		rnge = util.BytesPrefix([]byte(q.Prefix))
-		q.Prefix = ""
+		qNaive.Prefix = ""
 	}
 	i := a.ldb.NewIterator(rnge, nil)
 	next := i.Next
 	if len(q.Orders) > 0 {
 		switch q.Orders[0].(type) {
 		case dsq.OrderByKey, *dsq.OrderByKey:
-			q.Orders = nil
+			qNaive.Orders = nil
 		case dsq.OrderByKeyDescending, *dsq.OrderByKeyDescending:
 			next = func() bool {
 				next = i.Prev
 				return i.Last()
 			}
-			q.Orders = nil
+			qNaive.Orders = nil
 		default:
 		}
 	}
@@ -153,7 +157,7 @@ func (a *accessor) Query(q dsq.Query) (dsq.Results, error) {
 			return nil
 		},
 	})
-	return dsq.NaiveQueryApply(q, r), nil
+	return dsq.NaiveQueryApply(qNaive, r), nil
 }
 
 // DiskUsage returns the current disk size used by this levelDB.
