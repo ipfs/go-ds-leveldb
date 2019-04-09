@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sort"
 	"testing"
 
 	ds "github.com/ipfs/go-datastore"
@@ -101,6 +102,33 @@ func testQuery(t *testing.T, d *Datastore) {
 		"/a/b/d",
 		"/a/c",
 	}, rs)
+
+	// test order
+
+	rs, err = d.Query(dsq.Query{Orders: []dsq.Order{dsq.OrderByKey{}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	keys := make([]string, 0, len(testcases))
+	for k := range testcases {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	expectOrderedMatches(t, keys, rs)
+
+	rs, err = d.Query(dsq.Query{Orders: []dsq.Order{dsq.OrderByKeyDescending{}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// reverse
+	for i, j := 0, len(keys)-1; i < j; i, j = i+1, j-1 {
+		keys[i], keys[j] = keys[j], keys[i]
+	}
+
+	expectOrderedMatches(t, keys, rs)
 }
 
 func TestQuery(t *testing.T) {
@@ -125,6 +153,7 @@ func TestQueryRespectsProcessMem(t *testing.T) {
 }
 
 func expectMatches(t *testing.T, expect []string, actualR dsq.Results) {
+	t.Helper()
 	actual, err := actualR.Rest()
 	if err != nil {
 		t.Error(err)
@@ -142,6 +171,23 @@ func expectMatches(t *testing.T, expect []string, actualR dsq.Results) {
 		}
 		if !found {
 			t.Error(k, "not found")
+		}
+	}
+}
+
+func expectOrderedMatches(t *testing.T, expect []string, actualR dsq.Results) {
+	t.Helper()
+	actual, err := actualR.Rest()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(actual) != len(expect) {
+		t.Error("not enough", expect, actual)
+	}
+	for i := range expect {
+		if expect[i] != actual[i].Key {
+			t.Errorf("expected %q, got %q", expect[i], actual[i].Key)
 		}
 	}
 }
