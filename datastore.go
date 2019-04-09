@@ -117,6 +117,28 @@ func (a *accessor) Query(q dsq.Query) (dsq.Results, error) {
 	return a.queryNew(q)
 }
 
+// rangeForQuery returns a new Range struct that starts and bounds a query,
+// based on Query.Prefix and Query.SeekPrefix
+func rangeForQuery(q *dsq.Query) *util.Range {
+	var rnge *util.Range
+
+	if len(q.Prefix) > 0 {
+		rnge = util.BytesPrefix([]byte(q.Prefix))
+	}
+
+	if len(q.SeekPrefix) > 0 {
+		if rnge == nil {
+			limit := [1]byte{0xff}
+			rnge = &util.Range{
+				Limit: limit[:],
+			}
+		}
+		rnge.Start = []byte(q.SeekPrefix)
+	}
+
+	return rnge
+}
+
 func (a *accessor) queryNew(q dsq.Query) (dsq.Results, error) {
 	if len(q.Filters) > 0 ||
 		len(q.Orders) > 0 ||
@@ -124,10 +146,7 @@ func (a *accessor) queryNew(q dsq.Query) (dsq.Results, error) {
 		q.Offset > 0 {
 		return a.queryOrig(q)
 	}
-	var rnge *util.Range
-	if q.Prefix != "" {
-		rnge = util.BytesPrefix([]byte(q.Prefix))
-	}
+	rnge := rangeForQuery(&q)
 	i := a.ldb.NewIterator(rnge, nil)
 	return dsq.ResultsFromIterator(q, dsq.Iterator{
 		Next: func() (dsq.Result, bool) {
@@ -185,10 +204,7 @@ func (a *accessor) queryOrig(q dsq.Query) (dsq.Results, error) {
 }
 
 func (a *accessor) runQuery(worker goprocess.Process, qrb *dsq.ResultBuilder) {
-	var rnge *util.Range
-	if qrb.Query.Prefix != "" {
-		rnge = util.BytesPrefix([]byte(qrb.Query.Prefix))
-	}
+	rnge := rangeForQuery(&qrb.Query)
 	i := a.ldb.NewIterator(rnge, nil)
 	defer i.Release()
 
