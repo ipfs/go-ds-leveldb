@@ -99,16 +99,6 @@ func (d *accessor) GetSize(key ds.Key) (size int, err error) {
 }
 
 func (a *accessor) Delete(key ds.Key) (err error) {
-	// leveldb Delete will not return an error if the key doesn't
-	// exist (see https://github.com/syndtr/goleveldb/issues/109),
-	// so check that the key exists first and if not return an
-	// error
-	exists, err := a.ldb.Has(key.Bytes(), nil)
-	if !exists {
-		return ds.ErrNotFound
-	} else if err != nil {
-		return err
-	}
 	return a.ldb.Delete(key.Bytes(), nil)
 }
 
