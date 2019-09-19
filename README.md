@@ -10,6 +10,10 @@
 
 `go-ds-leveldb` implements the [go-datastore](https://github.com/ipfs/go-datastore) interface using a LevelDB backend.
 
+## Lead Maintainer
+
+[Steven Allen](https://github.com/Stebalien)
+
 ## Table of Contents
 
 - [Install](#install)
