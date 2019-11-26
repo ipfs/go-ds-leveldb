@@ -30,7 +30,7 @@ var testcases = map[string]string{
 //  d, close := newDS(t)
 //  defer close()
 func newDS(t *testing.T) (*Datastore, func()) {
-	path, err := ioutil.TempDir("/tmp", "testing_leveldb_")
+	path, err := ioutil.TempDir("", "testing_leveldb_")
 	if err != nil {
 		t.Fatal(err)
 	}

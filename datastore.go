@@ -79,6 +79,10 @@ func (a *accessor) Put(key ds.Key, value []byte) (err error) {
 	return a.ldb.Put(key.Bytes(), value, nil)
 }
 
+func (a *accessor) Sync(prefix ds.Key) error {
+	return nil
+}
+
 func (a *accessor) Get(key ds.Key) (value []byte, err error) {
 	val, err := a.ldb.Get(key.Bytes(), nil)
 	if err != nil {
