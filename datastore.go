@@ -53,7 +53,7 @@ func NewDatastore(path string, opts *Options) (*Datastore, error) {
 	}
 
 	return &Datastore{
-		accessor: &accessor{ldb: db},
+		accessor: &accessor{ldb: db, syncWrites: true},
 		DB:       db,
 		path:     path,
 	}, nil
@@ -72,11 +72,16 @@ type levelDbOps interface {
 
 // Datastore operations using either the DB or a transaction as the backend.
 type accessor struct {
-	ldb levelDbOps
+	ldb        levelDbOps
+	syncWrites bool
 }
 
 func (a *accessor) Put(key ds.Key, value []byte) (err error) {
-	return a.ldb.Put(key.Bytes(), value, nil)
+	return a.ldb.Put(key.Bytes(), value, &opt.WriteOptions{Sync: a.syncWrites})
+}
+
+func (a *accessor) Sync(prefix ds.Key) error {
+	return nil
 }
 
 func (a *accessor) Get(key ds.Key) (value []byte, err error) {
@@ -99,7 +104,7 @@ func (d *accessor) GetSize(key ds.Key) (size int, err error) {
 }
 
 func (a *accessor) Delete(key ds.Key) (err error) {
-	return a.ldb.Delete(key.Bytes(), nil)
+	return a.ldb.Delete(key.Bytes(), &opt.WriteOptions{Sync: a.syncWrites})
 }
 
 func (a *accessor) Query(q dsq.Query) (dsq.Results, error) {
@@ -180,14 +185,16 @@ func (d *Datastore) Close() (err error) {
 }
 
 type leveldbBatch struct {
-	b  *leveldb.Batch
-	db *leveldb.DB
+	b          *leveldb.Batch
+	db         *leveldb.DB
+	syncWrites bool
 }
 
 func (d *Datastore) Batch() (ds.Batch, error) {
 	return &leveldbBatch{
-		b:  new(leveldb.Batch),
-		db: d.DB,
+		b:          new(leveldb.Batch),
+		db:         d.DB,
+		syncWrites: d.syncWrites,
 	}, nil
 }
 
@@ -197,7 +204,7 @@ func (b *leveldbBatch) Put(key ds.Key, value []byte) error {
 }
 
 func (b *leveldbBatch) Commit() error {
-	return b.db.Write(b.b, nil)
+	return b.db.Write(b.b, &opt.WriteOptions{Sync: b.syncWrites})
 }
 
 func (b *leveldbBatch) Delete(key ds.Key) error {
@@ -224,6 +231,6 @@ func (d *Datastore) NewTransaction(readOnly bool) (ds.Txn, error) {
 	if err != nil {
 		return nil, err
 	}
-	accessor := &accessor{tx}
+	accessor := &accessor{ldb: tx, syncWrites: false}
 	return &transaction{accessor, tx}, nil
 }
