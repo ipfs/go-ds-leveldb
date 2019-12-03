@@ -133,7 +133,7 @@ func (a *accessor) Query(q dsq.Query) (dsq.Results, error) {
 				return dsq.Result{}, false
 			}
 			k := string(i.Key())
-			e := dsq.Entry{Key: k}
+			e := dsq.Entry{Key: k, Size: len(i.Value())}
 
 			if !q.KeysOnly {
 				buf := make([]byte, len(i.Value()))
