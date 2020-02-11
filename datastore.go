@@ -113,8 +113,9 @@ func (a *accessor) Query(q dsq.Query) (dsq.Results, error) {
 	// make a copy of the query for the fallback naive query implementation.
 	// don't modify the original so res.Query() returns the correct results.
 	qNaive := q
-	if q.Prefix != "" {
-		rnge = util.BytesPrefix([]byte(q.Prefix))
+	prefix := ds.NewKey(q.Prefix).String()
+	if prefix != "/" {
+		rnge = util.BytesPrefix([]byte(prefix + "/"))
 		qNaive.Prefix = ""
 	}
 	i := a.ldb.NewIterator(rnge, nil)
