@@ -147,6 +147,44 @@ func TestQueryRespectsProcess(t *testing.T) {
 	addTestCases(t, d, testcases)
 }
 
+func TestCloseRace(t *testing.T) {
+	d, close := newDS(t)
+	for n := 0; n < 100; n++ {
+		d.Put(ds.NewKey(fmt.Sprintf("%d", n)), []byte(fmt.Sprintf("test%d", n)))
+	}
+
+	tx, _ := d.NewTransaction(false)
+	tx.Put(ds.NewKey("txnversion"), []byte("bump"))
+
+	closeCh := make(chan interface{})
+
+	go func() {
+		close()
+		closeCh <- nil
+	}()
+	for k := range testcases {
+		tx.Get(ds.NewKey(k))
+	}
+	tx.Commit()
+	<-closeCh
+}
+
+func TestCloseSafety(t *testing.T) {
+	d, close := newDS(t)
+	addTestCases(t, d, testcases)
+
+	tx, _ := d.NewTransaction(false)
+	err := tx.Put(ds.NewKey("test"), []byte("test"))
+	if err != nil {
+		t.Error("Failed to put in a txn.")
+	}
+	close()
+	err = tx.Commit()
+	if err == nil {
+		t.Error("committing after close should fail.")
+	}
+}
+
 func TestQueryRespectsProcessMem(t *testing.T) {
 	d := newDSMem(t)
 	addTestCases(t, d, testcases)
