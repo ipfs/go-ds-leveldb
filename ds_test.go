@@ -2,6 +2,7 @@ package leveldb
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -54,17 +55,17 @@ func newDSMem(t *testing.T) *Datastore {
 	return d
 }
 
-func addTestCases(t *testing.T, d *Datastore, testcases map[string]string) {
+func addTestCases(t *testing.T, ctx context.Context, d *Datastore, testcases map[string]string) {
 	for k, v := range testcases {
 		dsk := ds.NewKey(k)
-		if err := d.Put(dsk, []byte(v)); err != nil {
+		if err := d.Put(ctx, dsk, []byte(v)); err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	for k, v := range testcases {
 		dsk := ds.NewKey(k)
-		v2, err := d.Get(dsk)
+		v2, err := d.Get(ctx, dsk)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -76,9 +77,11 @@ func addTestCases(t *testing.T, d *Datastore, testcases map[string]string) {
 }
 
 func testQuery(t *testing.T, d *Datastore) {
-	addTestCases(t, d, testcases)
+	ctx := context.Background()
 
-	rs, err := d.Query(dsq.Query{Prefix: "/a/"})
+	addTestCases(t, ctx, d, testcases)
+
+	rs, err := d.Query(ctx, dsq.Query{Prefix: "/a/"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +96,7 @@ func testQuery(t *testing.T, d *Datastore) {
 
 	// test offset and limit
 
-	rs, err = d.Query(dsq.Query{Prefix: "/a/", Offset: 2, Limit: 2})
+	rs, err = d.Query(ctx, dsq.Query{Prefix: "/a/", Offset: 2, Limit: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +108,7 @@ func testQuery(t *testing.T, d *Datastore) {
 
 	// test order
 
-	rs, err = d.Query(dsq.Query{Orders: []dsq.Order{dsq.OrderByKey{}}})
+	rs, err = d.Query(ctx, dsq.Query{Orders: []dsq.Order{dsq.OrderByKey{}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +121,7 @@ func testQuery(t *testing.T, d *Datastore) {
 
 	expectOrderedMatches(t, keys, rs)
 
-	rs, err = d.Query(dsq.Query{Orders: []dsq.Order{dsq.OrderByKeyDescending{}}})
+	rs, err = d.Query(ctx, dsq.Query{Orders: []dsq.Order{dsq.OrderByKeyDescending{}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,19 +145,23 @@ func TestQueryMem(t *testing.T) {
 }
 
 func TestQueryRespectsProcess(t *testing.T) {
+	ctx := context.Background()
+
 	d, close := newDS(t)
 	defer close()
-	addTestCases(t, d, testcases)
+	addTestCases(t, ctx, d, testcases)
 }
 
 func TestCloseRace(t *testing.T) {
+	ctx := context.Background()
+
 	d, close := newDS(t)
 	for n := 0; n < 100; n++ {
-		d.Put(ds.NewKey(fmt.Sprintf("%d", n)), []byte(fmt.Sprintf("test%d", n)))
+		d.Put(ctx, ds.NewKey(fmt.Sprintf("%d", n)), []byte(fmt.Sprintf("test%d", n)))
 	}
 
 	tx, _ := d.NewTransaction(false)
-	tx.Put(ds.NewKey("txnversion"), []byte("bump"))
+	tx.Put(ctx, ds.NewKey("txnversion"), []byte("bump"))
 
 	closeCh := make(chan interface{})
 
@@ -163,31 +170,35 @@ func TestCloseRace(t *testing.T) {
 		closeCh <- nil
 	}()
 	for k := range testcases {
-		tx.Get(ds.NewKey(k))
+		tx.Get(ctx, ds.NewKey(k))
 	}
-	tx.Commit()
+	tx.Commit(ctx)
 	<-closeCh
 }
 
 func TestCloseSafety(t *testing.T) {
+	ctx := context.Background()
+
 	d, close := newDS(t)
-	addTestCases(t, d, testcases)
+	addTestCases(t, ctx, d, testcases)
 
 	tx, _ := d.NewTransaction(false)
-	err := tx.Put(ds.NewKey("test"), []byte("test"))
+	err := tx.Put(ctx, ds.NewKey("test"), []byte("test"))
 	if err != nil {
 		t.Error("Failed to put in a txn.")
 	}
 	close()
-	err = tx.Commit()
+	err = tx.Commit(ctx)
 	if err == nil {
 		t.Error("committing after close should fail.")
 	}
 }
 
 func TestQueryRespectsProcessMem(t *testing.T) {
+	ctx := context.Background()
+
 	d := newDSMem(t)
-	addTestCases(t, d, testcases)
+	addTestCases(t, ctx, d, testcases)
 }
 
 func expectMatches(t *testing.T, expect []string, actualR dsq.Results) {
@@ -231,25 +242,27 @@ func expectOrderedMatches(t *testing.T, expect []string, actualR dsq.Results) {
 }
 
 func testBatching(t *testing.T, d *Datastore) {
+	ctx := context.Background()
+
 	b, err := d.Batch()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for k, v := range testcases {
-		err := b.Put(ds.NewKey(k), []byte(v))
+		err := b.Put(ctx, ds.NewKey(k), []byte(v))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	err = b.Commit()
+	err = b.Commit(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for k, v := range testcases {
-		val, err := d.Get(ds.NewKey(k))
+		val, err := d.Get(ctx, ds.NewKey(k))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -272,8 +285,10 @@ func TestBatchingMem(t *testing.T) {
 }
 
 func TestDiskUsage(t *testing.T) {
+	ctx := context.Background()
+
 	d, done := newDS(t)
-	addTestCases(t, d, testcases)
+	addTestCases(t, ctx, d, testcases)
 	du, err := d.DiskUsage()
 	if err != nil {
 		t.Fatal(err)
@@ -284,7 +299,7 @@ func TestDiskUsage(t *testing.T) {
 	}
 
 	k := ds.NewKey("more")
-	err = d.Put(k, []byte("value"))
+	err = d.Put(ctx, k, []byte("value"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -312,6 +327,8 @@ func TestDiskUsageInMem(t *testing.T) {
 }
 
 func TestTransactionCommit(t *testing.T) {
+	ctx := context.Background()
+
 	key := ds.NewKey("/test/key1")
 
 	d, done := newDS(t)
@@ -321,23 +338,25 @@ func TestTransactionCommit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer txn.Discard()
+	defer txn.Discard(ctx)
 
-	if err := txn.Put(key, []byte("hello")); err != nil {
+	if err := txn.Put(ctx, key, []byte("hello")); err != nil {
 		t.Fatal(err)
 	}
-	if val, err := d.Get(key); err != ds.ErrNotFound {
+	if val, err := d.Get(ctx, key); err != ds.ErrNotFound {
 		t.Fatalf("expected ErrNotFound, got err: %v, value: %v", err, val)
 	}
-	if err := txn.Commit(); err != nil {
+	if err := txn.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if val, err := d.Get(key); err != nil || !bytes.Equal(val, []byte("hello")) {
+	if val, err := d.Get(ctx, key); err != nil || !bytes.Equal(val, []byte("hello")) {
 		t.Fatalf("expected entry present after commit, got err: %v, value: %v", err, val)
 	}
 }
 
 func TestTransactionDiscard(t *testing.T) {
+	ctx := context.Background()
+
 	key := ds.NewKey("/test/key1")
 
 	d, done := newDS(t)
@@ -347,23 +366,25 @@ func TestTransactionDiscard(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer txn.Discard()
+	defer txn.Discard(ctx)
 
-	if err := txn.Put(key, []byte("hello")); err != nil {
+	if err := txn.Put(ctx, key, []byte("hello")); err != nil {
 		t.Fatal(err)
 	}
-	if val, err := d.Get(key); err != ds.ErrNotFound {
+	if val, err := d.Get(ctx, key); err != ds.ErrNotFound {
 		t.Fatalf("expected ErrNotFound, got err: %v, value: %v", err, val)
 	}
-	if txn.Discard(); err != nil {
+	if txn.Discard(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if val, err := d.Get(key); err != ds.ErrNotFound {
+	if val, err := d.Get(ctx, key); err != ds.ErrNotFound {
 		t.Fatalf("expected ErrNotFound, got err: %v, value: %v", err, val)
 	}
 }
 
 func TestTransactionManyOperations(t *testing.T) {
+	ctx := context.Background()
+
 	keys := []ds.Key{ds.NewKey("/test/key1"), ds.NewKey("/test/key2"), ds.NewKey("/test/key3"), ds.NewKey("/test/key4"), ds.NewKey("/test/key5")}
 
 	d, done := newDS(t)
@@ -373,37 +394,37 @@ func TestTransactionManyOperations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer txn.Discard()
+	defer txn.Discard(ctx)
 
 	// Insert all entries.
 	for i := 0; i < 5; i++ {
-		if err := txn.Put(keys[i], []byte(fmt.Sprintf("hello%d", i))); err != nil {
+		if err := txn.Put(ctx, keys[i], []byte(fmt.Sprintf("hello%d", i))); err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	// Remove the third entry.
-	if err := txn.Delete(keys[2]); err != nil {
+	if err := txn.Delete(ctx, keys[2]); err != nil {
 		t.Fatal(err)
 	}
 
 	// Check existences.
-	if has, err := txn.Has(keys[1]); err != nil || !has {
+	if has, err := txn.Has(ctx, keys[1]); err != nil || !has {
 		t.Fatalf("expected key[1] to be present, err: %v, has: %v", err, has)
 	}
-	if has, err := txn.Has(keys[2]); err != nil || has {
+	if has, err := txn.Has(ctx, keys[2]); err != nil || has {
 		t.Fatalf("expected key[2] to be absent, err: %v, has: %v", err, has)
 	}
 
 	var res dsq.Results
-	if res, err = txn.Query(dsq.Query{Prefix: "/test"}); err != nil {
+	if res, err = txn.Query(ctx, dsq.Query{Prefix: "/test"}); err != nil {
 		t.Fatalf("query failed, err: %v", err)
 	}
 	if entries, err := res.Rest(); err != nil || len(entries) != 4 {
 		t.Fatalf("query failed or contained unexpected number of entries, err: %v, results: %v", err, entries)
 	}
 
-	txn.Discard()
+	txn.Discard(ctx)
 }
 
 func TestSuite(t *testing.T) {
