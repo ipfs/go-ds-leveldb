@@ -30,7 +30,7 @@ type Options opt.Options
 
 // NewDatastore returns a new datastore backed by leveldb
 //
-// for path == "", an in memory bachend will be chosen
+// for path == "", an in memory backend will be chosen
 func NewDatastore(path string, opts *Options) (*Datastore, error) {
 	var nopts opt.Options
 	if opts != nil {
