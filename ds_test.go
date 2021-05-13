@@ -290,6 +290,9 @@ func TestDiskUsage(t *testing.T) {
 	}
 
 	du2, err := d.DiskUsage()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if du2 <= du {
 		t.Fatal("size should have increased")
 	}
