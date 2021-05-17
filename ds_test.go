@@ -40,8 +40,12 @@ func newDS(t *testing.T) (*Datastore, func()) {
 		t.Fatal(err)
 	}
 	return d, func() {
-		os.RemoveAll(path)
-		d.Close()
+		if err := d.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.RemoveAll(path); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
