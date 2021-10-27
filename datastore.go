@@ -1,6 +1,7 @@
 package leveldb
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"sync"
@@ -79,17 +80,17 @@ type accessor struct {
 	closeLk    *sync.RWMutex
 }
 
-func (a *accessor) Put(key ds.Key, value []byte) (err error) {
+func (a *accessor) Put(ctx context.Context, key ds.Key, value []byte) (err error) {
 	a.closeLk.RLock()
 	defer a.closeLk.RUnlock()
 	return a.ldb.Put(key.Bytes(), value, &opt.WriteOptions{Sync: a.syncWrites})
 }
 
-func (a *accessor) Sync(prefix ds.Key) error {
+func (a *accessor) Sync(ctx context.Context, prefix ds.Key) error {
 	return nil
 }
 
-func (a *accessor) Get(key ds.Key) (value []byte, err error) {
+func (a *accessor) Get(ctx context.Context, key ds.Key) (value []byte, err error) {
 	a.closeLk.RLock()
 	defer a.closeLk.RUnlock()
 	val, err := a.ldb.Get(key.Bytes(), nil)
@@ -102,23 +103,23 @@ func (a *accessor) Get(key ds.Key) (value []byte, err error) {
 	return val, nil
 }
 
-func (a *accessor) Has(key ds.Key) (exists bool, err error) {
+func (a *accessor) Has(ctx context.Context, key ds.Key) (exists bool, err error) {
 	a.closeLk.RLock()
 	defer a.closeLk.RUnlock()
 	return a.ldb.Has(key.Bytes(), nil)
 }
 
-func (a *accessor) GetSize(key ds.Key) (size int, err error) {
-	return ds.GetBackedSize(a, key)
+func (a *accessor) GetSize(ctx context.Context, key ds.Key) (size int, err error) {
+	return ds.GetBackedSize(ctx, a, key)
 }
 
-func (a *accessor) Delete(key ds.Key) (err error) {
+func (a *accessor) Delete(ctx context.Context, key ds.Key) (err error) {
 	a.closeLk.RLock()
 	defer a.closeLk.RUnlock()
 	return a.ldb.Delete(key.Bytes(), &opt.WriteOptions{Sync: a.syncWrites})
 }
 
-func (a *accessor) Query(q dsq.Query) (dsq.Results, error) {
+func (a *accessor) Query(ctx context.Context, q dsq.Query) (dsq.Results, error) {
 	a.closeLk.RLock()
 	defer a.closeLk.RUnlock()
 	var rnge *util.Range
@@ -175,7 +176,7 @@ func (a *accessor) Query(q dsq.Query) (dsq.Results, error) {
 
 // DiskUsage returns the current disk size used by this levelDB.
 // For in-mem datastores, it will return 0.
-func (d *Datastore) DiskUsage() (uint64, error) {
+func (d *Datastore) DiskUsage(ctx context.Context) (uint64, error) {
 	d.closeLk.RLock()
 	defer d.closeLk.RUnlock()
 	if d.path == "" { // in-mem
@@ -213,7 +214,7 @@ type leveldbBatch struct {
 	syncWrites bool
 }
 
-func (d *Datastore) Batch() (ds.Batch, error) {
+func (d *Datastore) Batch(ctx context.Context) (ds.Batch, error) {
 	return &leveldbBatch{
 		b:          new(leveldb.Batch),
 		db:         d.DB,
@@ -222,18 +223,18 @@ func (d *Datastore) Batch() (ds.Batch, error) {
 	}, nil
 }
 
-func (b *leveldbBatch) Put(key ds.Key, value []byte) error {
+func (b *leveldbBatch) Put(ctx context.Context, key ds.Key, value []byte) error {
 	b.b.Put(key.Bytes(), value)
 	return nil
 }
 
-func (b *leveldbBatch) Commit() error {
+func (b *leveldbBatch) Commit(ctx context.Context) error {
 	b.closeLk.RLock()
 	defer b.closeLk.RUnlock()
 	return b.db.Write(b.b, &opt.WriteOptions{Sync: b.syncWrites})
 }
 
-func (b *leveldbBatch) Delete(key ds.Key) error {
+func (b *leveldbBatch) Delete(ctx context.Context, key ds.Key) error {
 	b.b.Delete(key.Bytes())
 	return nil
 }
@@ -244,19 +245,19 @@ type transaction struct {
 	tx *leveldb.Transaction
 }
 
-func (t *transaction) Commit() error {
+func (t *transaction) Commit(ctx context.Context) error {
 	t.closeLk.RLock()
 	defer t.closeLk.RUnlock()
 	return t.tx.Commit()
 }
 
-func (t *transaction) Discard() {
+func (t *transaction) Discard(ctx context.Context) {
 	t.closeLk.RLock()
 	defer t.closeLk.RUnlock()
 	t.tx.Discard()
 }
 
-func (d *Datastore) NewTransaction(readOnly bool) (ds.Txn, error) {
+func (d *Datastore) NewTransaction(ctx context.Context, readOnly bool) (ds.Txn, error) {
 	d.closeLk.RLock()
 	defer d.closeLk.RUnlock()
 	tx, err := d.DB.OpenTransaction()
