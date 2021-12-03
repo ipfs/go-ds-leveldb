@@ -24,6 +24,10 @@ type Datastore struct {
 
 var _ ds.Datastore = (*Datastore)(nil)
 var _ ds.TxnDatastore = (*Datastore)(nil)
+var _ ds.Txn = (*transaction)(nil)
+var _ ds.PersistentDatastore = (*Datastore)(nil)
+var _ ds.Batching = (*Datastore)(nil)
+var _ ds.Batch = (*leveldbBatch)(nil)
 
 // Options is an alias of syndtr/goleveldb/opt.Options which might be extended
 // in the future.
