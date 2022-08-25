@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"sort"
 	"testing"
@@ -30,10 +29,10 @@ var bg = context.Background()
 // returns datastore, and a function to call on exit.
 // (this garbage collects). So:
 //
-//  d, close := newDS(t)
-//  defer close()
+//	d, close := newDS(t)
+//	defer close()
 func newDS(t *testing.T) (*Datastore, func()) {
-	path, err := ioutil.TempDir("", "testing_leveldb_")
+	path, err := os.MkdirTemp("", "testing_leveldb_")
 	if err != nil {
 		t.Fatal(err)
 	}
