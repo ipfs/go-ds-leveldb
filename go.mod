@@ -12,4 +12,5 @@ require (
 	github.com/jbenet/goprocess v0.1.4 // indirect
 )
 
-go 1.20
+go 1.21
+
