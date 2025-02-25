@@ -168,11 +168,10 @@ func (a *accessor) Query(ctx context.Context, q dsq.Query) (dsq.Results, error) 
 			}
 			return dsq.Result{Entry: e}, true
 		},
-		Close: func() error {
+		Close: func() {
 			a.closeLk.RLock()
 			defer a.closeLk.RUnlock()
 			i.Release()
-			return nil
 		},
 	})
 	return dsq.NaiveQueryApply(qNaive, r), nil
