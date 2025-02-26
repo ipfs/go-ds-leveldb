@@ -3,7 +3,7 @@ module github.com/ipfs/go-ds-leveldb
 go 1.23
 
 require (
-	github.com/ipfs/go-datastore v0.7.1-0.20250225204649-1676d105e588
+	github.com/ipfs/go-datastore v0.7.1-0.20250226000051-0dbca94435fd
 	github.com/syndtr/goleveldb v1.0.0
 )
 
