@@ -168,10 +168,11 @@ func (a *accessor) Query(ctx context.Context, q dsq.Query) (dsq.Results, error) 
 			}
 			return dsq.Result{Entry: e}, true
 		},
-		Close: func() {
+		Close: func() error {
 			a.closeLk.RLock()
 			defer a.closeLk.RUnlock()
 			i.Release()
+			return nil
 		},
 	})
 	return dsq.NaiveQueryApply(qNaive, r), nil
@@ -204,7 +205,7 @@ func (d *Datastore) DiskUsage(ctx context.Context) (uint64, error) {
 }
 
 // LevelDB needs to be closed.
-func (d *Datastore) Close() (err error) {
+func (d *Datastore) Close() error {
 	d.closeLk.Lock()
 	defer d.closeLk.Unlock()
 	return d.DB.Close()
