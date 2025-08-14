@@ -4,7 +4,7 @@
 [![](https://img.shields.io/badge/project-IPFS-blue.svg?style=flat-square)](http://ipfs.io/)
 [![standard-readme compliant](https://img.shields.io/badge/standard--readme-OK-green.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
 [![GoDoc](https://pkg.go.dev/badge/github.com/ipfs/go-ds-leveldb)](https://pkg.go.dev/github.com/ipfs/go-ds-leveldb)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/ipfs/go-ds-leveldb/go-test.yml?branch=master alt="ci")](https://github.com/ipfs/go-ds-leveldb/actions)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/ipfs/go-ds-leveldb/go-test.yml?branch=master)](https://github.com/ipfs/go-ds-leveldb/actions)
 
 > A go-datastore implementation using LevelDB
 
