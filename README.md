@@ -5,6 +5,7 @@
 [![standard-readme compliant](https://img.shields.io/badge/standard--readme-OK-green.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
 [![GoDoc](https://pkg.go.dev/badge/github.com/ipfs/go-ds-leveldb)](https://pkg.go.dev/github.com/ipfs/go-ds-leveldb)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/ipfs/go-ds-leveldb/go-test.yml?branch=master" alt="ci")](https://github.com/ipfs/go-ds-leveldb/actions)
+[![Build Status](https://github.com/ipfs/go-ds-leveldb/actions/workflows/go-test.yml/badge.svg)](https://github.com/ipfs/go-ds-leveldb/actions/workflows/go-test.yml)
 
 > A go-datastore implementation using LevelDB
 
@@ -24,8 +25,6 @@ This module can be installed like a regular go module:
 ```
 go get github.com/ipfs/go-ds-leveldb
 ```
-
-It uses [Gx](https://github.com/whyrusleeping/gx) to manage dependencies. You can use `make deps` to rewrite imports to the gx-specified versions.
 
 ## Usage
 
