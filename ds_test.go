@@ -155,14 +155,14 @@ func TestQueryRespectsProcess(t *testing.T) {
 
 func TestCloseRace(t *testing.T) {
 	d, close := newDS(t)
-	for n := 0; n < 100; n++ {
-		d.Put(bg, ds.NewKey(fmt.Sprintf("%d", n)), []byte(fmt.Sprintf("test%d", n)))
+	for n := range 100 {
+		d.Put(bg, ds.NewKey(fmt.Sprintf("%d", n)), fmt.Appendf(nil, "test%d", n))
 	}
 
 	tx, _ := d.NewTransaction(bg, false)
 	tx.Put(bg, ds.NewKey("txnversion"), []byte("bump"))
 
-	closeCh := make(chan interface{})
+	closeCh := make(chan any)
 
 	go func() {
 		close()
@@ -385,8 +385,8 @@ func TestTransactionManyOperations(t *testing.T) {
 	defer txn.Discard(bg)
 
 	// Insert all entries.
-	for i := 0; i < 5; i++ {
-		if err := txn.Put(bg, keys[i], []byte(fmt.Sprintf("hello%d", i))); err != nil {
+	for i := range 5 {
+		if err := txn.Put(bg, keys[i], fmt.Appendf(nil, "hello%d", i)); err != nil {
 			t.Fatal(err)
 		}
 	}
