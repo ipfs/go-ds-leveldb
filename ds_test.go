@@ -158,19 +158,18 @@ func TestCloseRace(t *testing.T) {
 	tx, _ := d.NewTransaction(ctx, false)
 	tx.Put(ctx, ds.NewKey("txnversion"), []byte("bump"))
 
-	closeCh := make(chan any)
-
+	closeCh := make(chan error, 1)
 	go func() {
-		if err := d.Close(); err != nil {
-			t.Fatal(err)
-		}
-		closeCh <- nil
+		closeCh <- d.Close()
 	}()
 	for k := range testcases {
 		tx.Get(ctx, ds.NewKey(k))
 	}
 	tx.Commit(ctx)
-	<-closeCh
+	err = <-closeCh
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestCloseSafety(t *testing.T) {
