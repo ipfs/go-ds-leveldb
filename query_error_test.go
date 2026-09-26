@@ -45,8 +45,8 @@ func TestQueryClosedDatastore(t *testing.T) {
 func TestQueryTableReadError(t *testing.T) {
 	for _, descending := range []bool{false, true} {
 		for _, fail := range []bool{false, true} {
-			for _, channel := range []bool{false, true} {
-				t.Run(fmt.Sprintf("descending=%v/fail=%v/channel=%v", descending, fail, channel), func(t *testing.T) {
+			for _, consume := range []string{"sync", "channel", "rest"} {
+				t.Run(fmt.Sprintf("descending=%v/fail=%v/consume=%s", descending, fail, consume), func(t *testing.T) {
 					readErr := errors.New("table read failed")
 					s := &queryErrorStorage{Storage: storage.NewMemStorage(), err: readErr}
 					db, err := leveldb.Open(s, &opt.Options{
@@ -99,7 +99,13 @@ func TestQueryTableReadError(t *testing.T) {
 							t.Fatalf("iterator did not stop: %d entries, %d errors", entries, errs)
 						}
 					}
-					if channel {
+					if consume == "rest" {
+						rest, err := r.Rest()
+						entries += len(rest)
+						if err != nil {
+							check(dsq.Result{Error: err})
+						}
+					} else if consume == "channel" {
 						for result := range r.Next() {
 							check(result)
 						}
@@ -107,6 +113,10 @@ func TestQueryTableReadError(t *testing.T) {
 						for result, ok := r.NextSync(); ok; result, ok = r.NextSync() {
 							check(result)
 						}
+					}
+					alive, err := db.GetProperty("leveldb.aliveiters")
+					if err != nil || alive != "0" {
+						t.Fatalf("iterator not released after consumption: alive=%s err=%v", alive, err)
 					}
 					if fail && (errs != 1 || entries >= count) {
 						t.Fatalf("expected partial results and one error: %d entries, %d errors", entries, errs)

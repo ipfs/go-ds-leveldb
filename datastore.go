@@ -162,6 +162,8 @@ func (a *accessor) Query(ctx context.Context, q dsq.Query) (dsq.Results, error) 
 			if !next() {
 				done = true
 				err := i.Error()
+				// Rest may stop on the error without calling Close.
+				i.Release()
 				return dsq.Result{Error: err}, err != nil
 			}
 			k := string(i.Key())
