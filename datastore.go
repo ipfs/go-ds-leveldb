@@ -151,12 +151,20 @@ func (a *accessor) Query(ctx context.Context, q dsq.Query) (dsq.Results, error) 
 		default:
 		}
 	}
+	done := false
 	r := dsq.ResultsFromIterator(q, dsq.Iterator{
 		Next: func() (dsq.Result, bool) {
 			a.closeLk.RLock()
 			defer a.closeLk.RUnlock()
-			if !next() {
+			if done {
 				return dsq.Result{}, false
+			}
+			if !next() {
+				done = true
+				err := i.Error()
+				// Rest may stop on the error without calling Close.
+				i.Release()
+				return dsq.Result{Error: err}, err != nil
 			}
 			k := string(i.Key())
 			e := dsq.Entry{Key: k, Size: len(i.Value())}
